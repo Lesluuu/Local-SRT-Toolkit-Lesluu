@@ -1,0 +1,15 @@
+# ---------- faster-whisper (CTranslate2 加速版 Whisper, 语音转录核心) ----------
+faster-whisper>=1.0.0
+ctranslate2>=3.22.0
+av>=11.0.0          # PyAV - 音频解码
+
+# ---------- PyTorch (翻译模型 NLLB-200 的推理后端, CPU 即可, 有 CUDA 更快) ----------
+torch>=2.0.0,<3.0.0  ; sys_platform != "darwin" or platform_machine != "arm64"
+transformers>=4.35.0 # Hugging Face Transformers - NLLB Tokenizer + Seq2Seq 推理
+sentencepiece>=0.1.99  # NLLB 用的分词器 (BPE)
+tokenizers>=0.15.0
+numpy>=1.24.0
+
+# ---------- 通用依赖 ----------
+tqdm>=4.66.0
+colorama>=0.4.6 ; sys_platform == "win32"
