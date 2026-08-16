@@ -54,7 +54,7 @@
 
 ## 🚀 快速开始（Windows）
 
-> **不会用命令行? 直接看 [`使用说明.txt`](使用说明.txt), 跟着步骤走就行。**
+> **不会用命令行? 直接看 [`USAGE_CN.txt`](USAGE_CN.txt), 跟着步骤走就行。**
 
 ### 0. 环境要求
 
@@ -67,7 +67,7 @@
 
 ### 1. 一键安装（首次一次性）
 
-双击 **[`一键安装.bat`](一键安装.bat)**，它会自动：
+双击 **[`0_RUN_FIRST.bat`](0_RUN_FIRST.bat)**，它会自动：
 1. 检测 Python
 2. 创建虚拟环境 `venv/`
 3. 从清华镜像安装所有依赖包（约 2-5 分钟）
@@ -80,13 +80,13 @@
 
 | 双击哪个 .bat | 做什么 |
 |---|---|
-| **[`一键安装.bat`](一键安装.bat)** | 🔧 首次安装环境（只需运行一次） |
+| **[`0_RUN_FIRST.bat`](0_RUN_FIRST.bat)** | 🔧 首次安装+启动入口（双击这个就行） |
 | **[`start_transcribe.bat`](start_transcribe.bat)** | 🎬 把视频文件转录成 日文/英文 SRT 字幕 |
 | **[`start_translate.bat`](start_translate.bat)** | 🈯 把上一步产生的 SRT 翻译成 中文 SRT |
 
 典型工作流：
 ```
-①  一键安装.bat          → 首次安装环境 (只需一次)
+①  0_RUN_FIRST.bat       → 首次安装+启动入口 (双击这个就行)
 ②  start_transcribe.bat  → 选视频文件夹 → 产出【日文 SRT】(首次自动下载模型~1.6GB)
 ③  start_translate.bat   → 【源文件夹】选日文 SRT 所在目录
                            → 【输出文件夹】选另一个独立目录
