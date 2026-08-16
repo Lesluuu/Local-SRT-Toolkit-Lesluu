@@ -1,14 +1,20 @@
 # ---------- faster-whisper (CTranslate2 加速版 Whisper, 语音转录核心) ----------
 faster-whisper>=1.0.0
 ctranslate2>=3.22.0
-av>=11.0.0          # PyAV - 音频解码
+av>=11.0.0
 
 # ---------- PyTorch (翻译模型 NLLB-200 的推理后端, CPU 即可, 有 CUDA 更快) ----------
-torch>=2.0.0,<3.0.0  ; sys_platform != "darwin" or platform_machine != "arm64"
-transformers>=4.35.0 # Hugging Face Transformers - NLLB Tokenizer + Seq2Seq 推理
-sentencepiece>=0.1.99  # NLLB 用的分词器 (BPE)
+# Windows 默认装 CUDA 版 torch (约 2GB); 如果只要 CPU 版:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch>=2.0.0,<3.0.0
+transformers>=4.35.0
+sentencepiece>=0.1.99
 tokenizers>=0.15.0
 numpy>=1.24.0
+
+# ---------- CUDA 运行时 (faster-whisper GPU 加速需要, 没 NVIDIA 显卡也会装但不影响) ----------
+nvidia-cublas-cu12>=12.1
+nvidia-cuda-runtime-cu12>=12.1
 
 # ---------- 通用依赖 ----------
 tqdm>=4.66.0

@@ -1,6 +1,6 @@
 """
 本地视频批量字幕转录 - faster-whisper + CUDA
-启动方式: 双击 启动字幕转录.bat
+启动方式: 双击 start_transcribe.bat
 """
 import os
 import sys
@@ -10,23 +10,39 @@ import shutil
 import traceback
 from pathlib import Path
 
-# --- 把 fwenv 加到路径最前,优先用我们装的包 ---
-FWENV = Path(__file__).resolve().parent / "fwenv"
-if FWENV.exists():
-    sys.path.insert(0, str(FWENV))
-    # bin 目录加 PATH,让 av/tqdm 找到 exe
-    os.environ["PATH"] = str(FWENV / "bin") + os.pathsep + os.environ.get("PATH", "")
+# --- 国内 HuggingFace 镜像 (必须在 import transformers/huggingface_hub 之前设置) ---
+os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "300")
+
+# --- 兼容旧版 fwenv 和新版 venv 两种虚拟环境 ---
+_SCRIPT_DIR = Path(__file__).resolve().parent
+for _env_name in ("venv", "fwenv", ".venv"):
+    _env_path = _SCRIPT_DIR / _env_name
+    if (_env_path / "Lib" / "site-packages").exists():
+        sys.path.insert(0, str(_env_path / "Lib" / "site-packages"))
+        _bin = _env_path / "Scripts"
+        if _bin.exists():
+            os.environ["PATH"] = str(_bin) + os.pathsep + os.environ.get("PATH", "")
+        break
 
 # --- Windows DLL 路径注册 (CUDA / cuBLAS / cuDNN / NVRTC) ---
 # 这一步必须在 import faster_whisper / ctranslate2 之前执行,
 # 否则会报 RuntimeError: Library cublas64_12.dll is not found
 try:
-    _DLL_DIRS = [
-        FWENV / "nvidia" / "cublas" / "bin",
-        FWENV / "nvidia" / "cuda_runtime" / "bin",
-        FWENV / "nvidia" / "cuda_nvrtc" / "bin",
-        FWENV / "ctranslate2",
-    ]
+    _env_base = None
+    for _env_name in ("venv", "fwenv", ".venv"):
+        _candidate = _SCRIPT_DIR / _env_name
+        if (_candidate / "Lib" / "site-packages").exists():
+            _env_base = _candidate
+            break
+    _DLL_DIRS = []
+    if _env_base:
+        _DLL_DIRS = [
+            _env_base / "Lib" / "site-packages" / "nvidia" / "cublas" / "bin",
+            _env_base / "Lib" / "site-packages" / "nvidia" / "cuda_runtime" / "bin",
+            _env_base / "Lib" / "site-packages" / "nvidia" / "cuda_nvrtc" / "bin",
+            _env_base / "Lib" / "site-packages" / "ctranslate2",
+        ]
     for _d in _DLL_DIRS:
         if _d.exists():
             try:
@@ -348,33 +364,37 @@ def transcribe_one(video_path, model, lang, srt_path_out, precision):
         return False, 0, f"失败: {e}\n{tb}"
 
 def load_model(model_path):
-    """加载模型,返回 (model, info_str)"""
+    """加载模型,返回 (model, info_str). model_path 可以是本地目录或 HuggingFace repo ID."""
     from faster_whisper import WhisperModel
     t0 = time.time()
-    # GTX 1060 (Pascal 6.1) 原生支持的最佳组合:
-    #   int8_float32 = INT8 权重(省显存/带宽) + FP32 计算(Pascal 擅长)
-    #   若不行,依次降级到 int8 / float32, 最后 CPU int8
-    for ct in ["int8_float32", "int8", "float32"]:
-        try:
-            model = WhisperModel(
-                str(model_path),
-                device="cuda",
-                compute_type=ct,
-                device_index=0,
-                num_workers=1,
-            )
-            return model, f"✅ 模型加载成功 (CUDA compute_type={ct}, 用时 {time.time()-t0:.1f}s)"
-        except Exception as e:
-            msg = str(e).lower()
-            if ("cuda" in msg or "memory" in msg or "kernel" in msg
-                    or "compute type" in msg or "float16" in msg):
-                print(f"  ⚠️  compute_type={ct} 失败,尝试降级...  ({e})")
-                continue
-            raise
-    # CUDA 全失败,回退 CPU 兜底
-    print(f"  ⚠️  CUDA 全失败,回退 CPU (会很慢,但能用)...")
+    # 有 NVIDIA GPU 时优先 CUDA, 依次降级 compute_type; 没 GPU 直接 CPU
+    import torch
+    has_cuda = torch.cuda.is_available()
+    if has_cuda:
+        for ct in ["int8_float32", "int8", "float32"]:
+            try:
+                model = WhisperModel(
+                    str(model_path),
+                    device="cuda",
+                    compute_type=ct,
+                    device_index=0,
+                    num_workers=1,
+                )
+                return model, f"✅ 模型加载成功 (CUDA compute_type={ct}, 用时 {time.time()-t0:.1f}s)"
+            except Exception as e:
+                msg = str(e).lower()
+                if ("cuda" in msg or "memory" in msg or "kernel" in msg
+                        or "compute type" in msg or "float16" in msg):
+                    print(f"  ⚠️  compute_type={ct} 失败,尝试降级...  ({e})")
+                    continue
+                raise
+    # CUDA 全失败或没 GPU, 回退 CPU 兜底
+    if has_cuda:
+        print(f"  ⚠️  CUDA 全失败,回退 CPU (会很慢,但能用)...")
+    else:
+        print(f"  ℹ️  未检测到 NVIDIA GPU, 使用 CPU 模式 (速度较慢)...")
     model = WhisperModel(str(model_path), device="cpu", compute_type="int8", num_workers=1)
-    return model, f"✅ 模型加载成功 (CPU 兜底 compute_type=int8, 用时 {time.time()-t0:.1f}s)"
+    return model, f"✅ 模型加载成功 (CPU compute_type=int8, 用时 {time.time()-t0:.1f}s)"
 
 def srt_for_video(video_path):
     """返回该视频对应的 SRT 输出路径(优先 xxx.srt,其次 xxx.mp4.srt)"""
@@ -399,18 +419,16 @@ def main():
     #   model.bin (CTranslate2 原生 large-v3-turbo)
     #   config.json + preprocessor_config.json
     #   tokenizer.json + vocabulary.json
+    FW_MODEL_HF_ID = "Systran/faster-whisper-large-v3-turbo"
     model_path = base_dir / "fw_model"
-    if not model_path.exists():
-        print(f"❌ 找不到模型目录: {model_path}")
-        print("   需要里面有: model.bin, config.json, tokenizer.json, vocabulary.json")
-        input("按回车退出...")
-        return
-    required = ["model.bin", "config.json", "tokenizer.json", "vocabulary.json"]
-    missing = [fn for fn in required if not (model_path / fn).exists()]
-    if missing:
-        print(f"❌ 模型目录缺少文件: {missing}")
-        input("按回车退出...")
-        return
+    use_hf_download = False
+    if not model_path.exists() or not (model_path / "model.bin").exists():
+        print(f"📦 本地模型目录 fw_model/ 不存在或缺少 model.bin")
+        print(f"   将从 HuggingFace 镜像自动下载 CTranslate2 格式模型 (~1.6GB)...")
+        print(f"   模型: {FW_MODEL_HF_ID}")
+        print(f"   首次下载需要较长时间, 之后永久本地缓存, 断网也能用.")
+        use_hf_download = True
+        model_path = FW_MODEL_HF_ID  # WhisperModel 接受 HF repo ID 会自动下载
 
     # --- 步骤1: 让用户确认语言 ---
     print()

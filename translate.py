@@ -24,20 +24,37 @@ import traceback
 import contextlib
 from pathlib import Path
 
-# --- 把 fwenv 加到路径最前,优先用我们装的包 ---
-FWENV = Path(__file__).resolve().parent / "fwenv"
-if FWENV.exists():
-    sys.path.insert(0, str(FWENV))
-    os.environ["PATH"] = str(FWENV / "bin") + os.pathsep + os.environ.get("PATH", "")
+# --- 国内 HuggingFace 镜像 (必须在 import transformers/huggingface_hub 之前设置) ---
+os.environ.setdefault("HF_ENDPOINT", "https://hf-mirror.com")
+os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "300")
+
+# --- 兼容旧版 fwenv 和新版 venv 两种虚拟环境 ---
+_SCRIPT_DIR = Path(__file__).resolve().parent
+for _env_name in ("venv", "fwenv", ".venv"):
+    _env_path = _SCRIPT_DIR / _env_name
+    if (_env_path / "Lib" / "site-packages").exists():
+        sys.path.insert(0, str(_env_path / "Lib" / "site-packages"))
+        _bin = _env_path / "Scripts"
+        if _bin.exists():
+            os.environ["PATH"] = str(_bin) + os.pathsep + os.environ.get("PATH", "")
+        break
 
 # --- Windows DLL 路径注册 (torch / cublas 等) ---
 try:
-    _DLL_DIRS = [
-        FWENV / "nvidia" / "cublas" / "bin",
-        FWENV / "nvidia" / "cuda_runtime" / "bin",
-        FWENV / "nvidia" / "cuda_nvrtc" / "bin",
-        FWENV / "ctranslate2",
-    ]
+    _env_base = None
+    for _env_name in ("venv", "fwenv", ".venv"):
+        _candidate = _SCRIPT_DIR / _env_name
+        if (_candidate / "Lib" / "site-packages").exists():
+            _env_base = _candidate
+            break
+    _DLL_DIRS = []
+    if _env_base:
+        _DLL_DIRS = [
+            _env_base / "Lib" / "site-packages" / "nvidia" / "cublas" / "bin",
+            _env_base / "Lib" / "site-packages" / "nvidia" / "cuda_runtime" / "bin",
+            _env_base / "Lib" / "site-packages" / "nvidia" / "cuda_nvrtc" / "bin",
+            _env_base / "Lib" / "site-packages" / "ctranslate2",
+        ]
     for _d in _DLL_DIRS:
         if _d.exists():
             try:
@@ -269,7 +286,9 @@ def _resolve_lang_token_id(tok, lang_code):
 # 翻译器: 懒加载 NLLB-200 单模型 + 整段(7条/组)上下文翻译
 # ============================================================
 class Translator:
-    def __init__(self, cache_dir=r"E:\AI\mt_models", device=None):
+    def __init__(self, cache_dir=None, device=None):
+        if cache_dir is None:
+            cache_dir = Path(__file__).resolve().parent / "mt_models"
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.device = device

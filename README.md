@@ -54,39 +54,57 @@
 
 ## 🚀 快速开始（Windows）
 
+> **不会用命令行? 直接看 [`使用说明.txt`](使用说明.txt), 跟着步骤走就行。**
+
 ### 0. 环境要求
 
+- **Windows** 10 / 11 (64位)
 - **Python** 3.10 / 3.11 / 3.12 （安装时勾选 `Add Python to PATH`）
-- **推荐 GPU**：NVIDIA GTX 1060 6GB 以上（支持 CUDA 会自动启用，速度比 CPU 快 5~10 倍；没有 GPU 就跑 CPU 模式）
-- 硬盘空闲：**转录模型 ~2GB + 翻译模型 ~3GB + 视频 = 至少 10GB**
+  - 下载: https://www.python.org/downloads/
+- **推荐 GPU**：NVIDIA GTX 1060 6GB 以上（有 NVIDIA 显卡会自动用 GPU 加速，没有就用 CPU，也能跑只是慢）
+- 硬盘空闲：**依赖包 ~2GB + 模型 ~5GB + 视频 = 至少 10GB**
+- 网络：首次使用需要联网下载模型，之后永久离线运行
 
-### 1. 安装依赖（首次一次性）
+### 1. 一键安装（首次一次性）
 
-```bat
-REM （可选）推荐建虚拟环境，避免污染全局 Python
-py -3 -m venv .venv
-.venv\Scripts\activate.bat
+双击 **[`一键安装.bat`](一键安装.bat)**，它会自动：
+1. 检测 Python
+2. 创建虚拟环境 `venv/`
+3. 从清华镜像安装所有依赖包（约 2-5 分钟）
 
-REM 安装依赖（使用清华源加速）
-pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-```
+看到 `✅ 安装完成!` 就表示环境好了。
+
+> 如果安装失败，确认 Python 安装时勾了 "Add to PATH"，然后重新运行。
 
 ### 2. 开始使用
 
 | 双击哪个 .bat | 做什么 |
 |---|---|
+| **[`一键安装.bat`](一键安装.bat)** | 🔧 首次安装环境（只需运行一次） |
 | **[`start_transcribe.bat`](start_transcribe.bat)** | 🎬 把视频文件转录成 日文/英文 SRT 字幕 |
 | **[`start_translate.bat`](start_translate.bat)** | 🈯 把上一步产生的 SRT 翻译成 中文 SRT |
 
 典型工作流：
 ```
-①  start_transcribe.bat → 选视频文件夹 → 产出【日文 SRT】
-②  start_translate.bat  → 【源文件夹】选日文 SRT 所在目录
-                         → 【输出文件夹】选另一个独立目录
-                         → 输入 all → 批量产出【中文 SRT】
+①  一键安装.bat          → 首次安装环境 (只需一次)
+②  start_transcribe.bat  → 选视频文件夹 → 产出【日文 SRT】(首次自动下载模型~1.6GB)
+③  start_translate.bat   → 【源文件夹】选日文 SRT 所在目录
+                           → 【输出文件夹】选另一个独立目录
+                           → 输入 all → 批量产出【中文 SRT】(首次自动下载模型~3GB)
 ```
 
-脚本内置菜单所有交互都有中文提示，格式参考菜单头部。**推荐精度默认 `high`**，如果觉得太慢可以在菜单里输入 `mode=normal` 切换。
+### ⚠️ 关于首次自动下载模型
+
+两个工具第一次运行时都会**自动从国内镜像 (hf-mirror.com) 下载所需的大模型**：
+
+| 工具 | 模型 | 大小 | 说明 |
+|---|---|---|---|
+| 转录 | Whisper large-v3-turbo (CTranslate2) | ~1.6GB | 下载到 `fw_model/` 或 HF 缓存 |
+| 翻译 | Facebook NLLB-200 distilled-600M | ~3GB | 下载到 `mt_models/` |
+
+下载完成后永久保存在本地，**之后断网也能用**。下载速度取决于网络，一般 5-30 分钟。
+
+脚本内置菜单所有交互都有中文提示。**推荐精度默认 `high`**，如果觉得太慢可以在菜单里输入 `mode=normal` 切换。
 
 ---
 
